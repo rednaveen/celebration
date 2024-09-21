@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confetti</title>
+    <style>
+        body {
+            background-color: #000;
+            overflow: hidden;
+        }
+        
+        #confetti-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="confetti-canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        let confettiSize = parseInt(urlParams.get('size')) || 0;
+        const confettiCount = parseInt(urlParams.get('count')) || 100;
+        const windSpeed = parseFloat(urlParams.get('wind')) || 0.1;
+        const fallSpeed = parseFloat(urlParams.get('fall')) || 0.5;
+        const colors = (urlParams.get('colors')) ? urlParams.get('colors').split(',') : ['#FF69B4', '#FFC67D', '#8BC34A', '#03A9F4', '#3F51B5'];
+        const wishMsg = urlParams.get('wishmsg') || 'Happy Birthday!!';
+        const wishFontSize = parseInt(urlParams.get('wishfontsize')) || 48;
+        const wishSpeed = parseFloat(urlParams.get('wishspeed')) || 1;
+
+        // Set canvas dimensions
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Confetti properties
+        const confetti = [];
+
+        // Initialize confetti
+        for (let i = 0; i < confettiCount; i++) {
+            const rotationType = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+            const size = confettiSize === 0 ? Math.random() * 20 - 10 : confettiSize;
+            confetti.push({
+                x: Math.random() * canvas.width,
+                y: 0,
+                vx: Math.random() * windSpeed * 2 - windSpeed,
+                vy: fallSpeed + Math.random() * fallSpeed,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                rotation: 0,
+                rotationSpeed: Math.random() * 0.1,
+                rotationType,
+                size: Math.abs(size), // Ensure size is positive
+            });
+        }
+
+        // Wish message properties
+        let wishX = canvas.width / 2;
+        let wishY = canvas.height / 2;
+        let wishVx = wishSpeed;
+        let wishVy = wishSpeed;
+
+        // Fireworks properties
+        const fireworks = [];
+
+        // Animation loop
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            confetti.forEach((piece, index) => {
+                piece.x += piece.vx;
+                piece.y += piece.vy;
+                piece.rotation += piece.rotationSpeed;
+
+                // Boundary check
+                if (piece.y > canvas.height) {
+                    confetti[index] = {
+                        x: Math.random() * canvas.width,
+                        y: 0,
+                        vx: Math.random() * windSpeed * 2 - windSpeed,
+                        vy: fallSpeed + Math.random() * fallSpeed,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        rotation: 0,
+                        rotationSpeed: Math.random() * 0.1,
+                        rotationType: Math.random() < 0.5 ? 'horizontal' : 'vertical',
+                        size: confettiSize === 0 ? Math.random() * 20 - 10 : confettiSize,
+                    };
+                }
+                if (piece.x < 0 || piece.x > canvas.width) {
+                    piece.vx *= -1;
+                }
+
+                // Draw confetti
+                ctx.fillStyle = piece.color;
+                ctx.save();
+                if (piece.rotationType === 'horizontal') {
+                    ctx.translate(piece.x + piece.size / 2, piece.y + piece.size / 2);
+                    ctx.rotate(piece.rotation);
+                    ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size);
+                } else {
+                    ctx.translate(piece.x + piece.size / 2, piece.y + piece.size / 2);
+                    ctx.rotate(Math.PI / 2 * piece.rotation);
+                    ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size);
+                }
+                ctx.restore();
+            });
+
+            // Move wish message
+            wishX += wishVx;
+            wishY += wishVy;
+
+            // Boundary check for wish message
+            // Boundary check for wish message
+            if (wishX - wishFontSize / 2 < 0 || wishX + wishFontSize / 2 > canvas.width) {
+                wishVx *= -1;
+            }
+            if (wishY - wishFontSize / 2 < 0 || wishY + wishFontSize / 2 > canvas.height) {
+                wishVy *= -1;
+            }
+
+            // Draw wish message
+            ctx.font = `${wishFontSize}px cursive`;
+            ctx.fillStyle = '#FFF';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(wishMsg, wishX, wishY);
+
+            // Fireworks
+            if (fireworks.length < 4 && Math.random() < 0.05) {
+                fireworks.push({
+                    x: Math.random() * canvas.width,
+                    y: canvas.height,
+                    vx: Math.random() * 5 - 2.5,
+                    vy: -Math.random() * 10 - 5,
+                    size: 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    explosion: false,
+                    particles: [],
+                });
+            }
+
+            fireworks.forEach((firework, index) => {
+                firework.x += firework.vx;
+                firework.y += firework.vy;
+
+                // Explode firework
+                if (!firework.explosion && firework.y < canvas.height / 2) {
+                    firework.explosion = true;
+                    for (let i = 0; i < 50; i++) {
+                        firework.particles.push({
+                            x: firework.x,
+                            y: firework.y,
+                            vx: Math.random() * 5 - 2.5,
+                            vy: Math.random() * 5 - 2.5,
+                            size: Math.random() * 5 + 2,
+                            color: firework.color,
+                        });
+                    }
+                }
+
+                // Draw firework
+                if (!firework.explosion) {
+                    ctx.fillStyle = firework.color;
+                    ctx.beginPath();
+                    ctx.arc(firework.x, firework.y, firework.size, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+
+                // Draw exploded particles
+                firework.particles.forEach((particle, particleIndex) => {
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    particle.size -= 0.1;
+
+                    ctx.fillStyle = particle.color;
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.size, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    if (particle.size < 1) {
+                        firework.particles.splice(particleIndex, 1);
+                    }
+                });
+
+                // Remove exploded firework
+                if (firework.explosion && firework.particles.length === 0) {
+                    fireworks.splice(index, 1);
+                }
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
