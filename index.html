@@ -3,201 +3,749 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confetti</title>
+    <title>Customizable Wishes</title>
     <style>
-        body {
-            background-color: #000;
-            overflow: hidden;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        #confetti-canvas {
-            position: absolute;
+
+        body {
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #canvas {
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+            z-index: 1;
+        }
+
+        #wish-text {
+            position: fixed;
+            font-weight: bold;
+            z-index: 10;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
+            pointer-events: none;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #f9ca24, #ff6b6b);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient-shift 3s ease infinite;
+        }
+
+        @keyframes gradient-shift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* Theme backgrounds */
+        .theme-confetti { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
+        .theme-balloons { background: linear-gradient(135deg, #2d1b69 0%, #1a0b3d 50%, #0d0221 100%); }
+        .theme-stars { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%); }
+        .theme-gifts { background: linear-gradient(135deg, #2b1055 0%, #1a0933 50%, #0d0421 100%); }
+        .theme-fireworks { background: linear-gradient(135deg, #000000 0%, #1a1a2e 100%); }
+        .theme-hearts { background: linear-gradient(135deg, #3d1635 0%, #2b0a20 50%, #1a0515 100%); }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            z-index: 2;
+        }
+
+        .balloon {
+            position: absolute;
+            z-index: 2;
+            transform-style: preserve-3d;
+        }
+
+        .star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            z-index: 2;
+            animation: twinkle 2s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .meteor {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            z-index: 2;
+            box-shadow: 0 0 4px 2px rgba(255, 255, 255, 0.8);
+        }
+
+        .gift {
+            position: absolute;
+            z-index: 2;
+            transform-style: preserve-3d;
+        }
+
+        .firework {
+            position: absolute;
+            z-index: 2;
+        }
+
+        .heart {
+            position: absolute;
+            z-index: 2;
+            color: #ff6b9d;
+            font-size: 20px;
+            animation: float-heart 4s ease-in-out infinite;
+        }
+
+        @keyframes float-heart {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.1); }
+        }
+
+        .error-message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 107, 107, 0.9);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            z-index: 100;
+            font-size: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        .info-panel {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30, 30, 50, 0.95);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            z-index: 100;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.5s ease-in;
+            max-width: 90%;
+            line-height: 1.6;
+        }
+
+        .info-panel h3 {
+            margin: 0 0 10px 0;
+            color: #4ecdc4;
+            font-size: 18px;
+        }
+
+        .info-panel .param {
+            margin: 8px 0;
+            padding-left: 10px;
+        }
+
+        .info-panel .param-name {
+            color: #f9ca24;
+            font-weight: bold;
+        }
+
+        .info-panel .param-value {
+            color: #a29bfe;
+            font-style: italic;
+        }
+
+        .info-panel .current-value {
+            color: #ff6b6b;
         }
     </style>
 </head>
 <body>
-    <canvas id="confetti-canvas"></canvas>
+    <canvas id="canvas"></canvas>
+    <div id="wish-text"></div>
+
     <script>
-        const canvas = document.getElementById('confetti-canvas');
-        const ctx = canvas.getContext('2d');
-
-        // Get URL parameters
+        // Parse URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        let confettiSize = parseInt(urlParams.get('size')) || 0;
-        const confettiCount = parseInt(urlParams.get('count')) || 100;
-        const windSpeed = parseFloat(urlParams.get('wind')) || 0.1;
-        const fallSpeed = parseFloat(urlParams.get('fall')) || 0.5;
-        const colors = (urlParams.get('colors')) ? urlParams.get('colors').split(',') : ['#FF69B4', '#FFC67D', '#8BC34A', '#03A9F4', '#3F51B5'];
-        const wishMsg = urlParams.get('wishmsg') || 'Happy Birthday!!';
-        const wishFontSize = parseInt(urlParams.get('wishfontsize')) || 48;
-        const wishSpeed = parseFloat(urlParams.get('wishspeed')) || 1;
+        const wishText = urlParams.get('wish') || 'Happy Birthday!!';
+        const fontSize = parseInt(urlParams.get('size')) || 60;
+        const requestedTheme = urlParams.get('theme') || 'confetti';
+        const themeTimeout = parseInt(urlParams.get('themetimeout')) || 0;
+        
+        // Valid themes (array index + 1 = theme number)
+        const validThemes = ['confetti', 'balloons', 'stars', 'gifts', 'fireworks', 'hearts'];
+        
+        // Show info panel on load
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'info-panel';
+        infoDiv.innerHTML = `
+            <h3>📋 Available Parameters</h3>
+            <div class="param"><span class="param-name">?wish=</span> <span class="param-value">Your custom message</span> → Current: <span class="current-value">"${wishText}"</span></div>
+            <div class="param"><span class="param-name">&size=</span> <span class="param-value">Font size (number)</span> → Current: <span class="current-value">${fontSize}</span></div>
+            <div class="param"><span class="param-name">&theme=</span> <span class="param-value">1=confetti, 2=balloons, 3=stars, 4=gifts, 5=fireworks, 6=hearts</span> → Current: <span class="current-value">"${requestedTheme}"</span></div>
+            <div class="param"><span class="param-name">&themetimeout=</span> <span class="param-value">Seconds to auto-switch themes (0=disabled)</span> → Current: <span class="current-value">${themeTimeout}</span></div>
+            <div style="margin-top: 10px; font-size: 12px; color: #888;">Example: ?wish=Happy Birthday!&size=80&theme=2&themetimeout=10</div>
+        `;
+        document.body.appendChild(infoDiv);
+        
+        // Remove info panel after 5 seconds
+        setTimeout(() => {
+            infoDiv.style.transition = 'opacity 0.5s';
+            infoDiv.style.opacity = '0';
+            setTimeout(() => infoDiv.remove(), 500);
+        }, 5000);
+        
+        // Validate theme
+        let theme = requestedTheme;
+        let showError = false;
+        
+        // Check if theme is a number
+        const themeNum = parseInt(requestedTheme);
+        if (!isNaN(themeNum)) {
+            // User provided a number
+            if (themeNum >= 1 && themeNum <= validThemes.length) {
+                theme = validThemes[themeNum - 1]; // Convert 1-based to 0-based index
+            } else {
+                theme = 'fireworks';
+                showError = true;
+            }
+        } else if (!validThemes.includes(requestedTheme)) {
+            // User provided a string but it's not valid
+            theme = 'fireworks';
+            showError = true;
+        }
 
-        // Set canvas dimensions
+        // Show error message if invalid theme
+        if (showError) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.style.top = '150px'; // Position below info panel
+            errorDiv.textContent = `Invalid theme "${requestedTheme}". Valid themes: ${validThemes.map((t, i) => `${i+1}=${t}`).join(', ')}. Switched to fireworks.`;
+            document.body.appendChild(errorDiv);
+            
+            // Remove error message after 5 seconds
+            setTimeout(() => {
+                errorDiv.style.transition = 'opacity 0.5s';
+                errorDiv.style.opacity = '0';
+                setTimeout(() => errorDiv.remove(), 500);
+            }, 5000);
+        }
+
+        // Setup wish text
+        const wishElement = document.getElementById('wish-text');
+        wishElement.textContent = wishText;
+        wishElement.style.fontSize = fontSize + 'px';
+
+        // Apply theme
+        document.body.className = `theme-${theme}`;
+
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // Confetti properties
-        const confetti = [];
+        // Wish text animation
+        let wishX = Math.random() * (canvas.width - 400);
+        let wishY = Math.random() * (canvas.height - 100);
+        let wishVelocityX = 2 + Math.random() * 2;
+        let wishVelocityY = 2 + Math.random() * 2;
 
-        // Initialize confetti
-        for (let i = 0; i < confettiCount; i++) {
-            const rotationType = Math.random() < 0.5 ? 'horizontal' : 'vertical';
-            const size = confettiSize === 0 ? Math.random() * 20 - 10 : confettiSize;
-            confetti.push({
-                x: Math.random() * canvas.width,
-                y: 0,
-                vx: Math.random() * windSpeed * 2 - windSpeed,
-                vy: fallSpeed + Math.random() * fallSpeed,
-                color: colors[Math.floor(Math.random() * colors.length)],
-                rotation: 0,
-                rotationSpeed: Math.random() * 0.1,
-                rotationType,
-                size: Math.abs(size), // Ensure size is positive
-            });
+        function updateWishPosition() {
+            const rect = wishElement.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+
+            wishX += wishVelocityX;
+            wishY += wishVelocityY;
+
+            // Bounce off edges
+            if (wishX <= 0 || wishX >= canvas.width - width) {
+                wishVelocityX *= -1;
+                wishX = Math.max(0, Math.min(wishX, canvas.width - width));
+            }
+            if (wishY <= 0 || wishY >= canvas.height - height) {
+                wishVelocityY *= -1;
+                wishY = Math.max(0, Math.min(wishY, canvas.height - height));
+            }
+
+            wishElement.style.left = wishX + 'px';
+            wishElement.style.top = wishY + 'px';
         }
 
-        // Wish message properties
-        let wishX = canvas.width / 2;
-        let wishY = canvas.height / 2;
-        let wishVx = wishSpeed;
-        let wishVy = wishSpeed;
+        // Theme 1: Confetti
+        class Confetti {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = -10;
+                this.size = 5 + Math.random() * 10;
+                this.speedY = 2 + Math.random() * 3;
+                this.speedX = (Math.random() - 0.5) * 2;
+                this.color = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#ff9ff3'][Math.floor(Math.random() * 5)];
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = (Math.random() - 0.5) * 10;
+            }
 
-        // Fireworks properties
-        const fireworks = [];
+            update() {
+                this.y += this.speedY;
+                this.x += this.speedX;
+                this.rotation += this.rotationSpeed;
+                if (this.y > canvas.height) {
+                    this.y = -10;
+                    this.x = Math.random() * canvas.width;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation * Math.PI / 180);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        // Theme 2: Balloons
+        class Balloon {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = canvas.height + 50;
+                this.size = 40 + Math.random() * 40;
+                this.speedY = -1 - Math.random() * 2;
+                this.speedX = (Math.random() - 0.5) * 1;
+                this.color = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#ff9ff3', '#a29bfe'][Math.floor(Math.random() * 6)];
+                this.swing = Math.random() * Math.PI * 2;
+                this.swingSpeed = 0.02 + Math.random() * 0.03;
+                this.depth = 0.5 + Math.random() * 0.5;
+            }
+
+            update() {
+                this.y += this.speedY;
+                this.swing += this.swingSpeed;
+                this.x += Math.sin(this.swing) * 0.5 + this.speedX;
+                
+                if (this.y < -100) {
+                    this.y = canvas.height + 50;
+                    this.x = Math.random() * canvas.width;
+                }
+                if (this.x < 0) this.x = canvas.width;
+                if (this.x > canvas.width) this.x = 0;
+            }
+
+            draw() {
+                const size = this.size * this.depth;
+                ctx.save();
+                ctx.globalAlpha = 0.7 + this.depth * 0.3;
+                
+                // Balloon
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y, size * 0.7, size, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Highlight
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.beginPath();
+                ctx.ellipse(this.x - size * 0.2, this.y - size * 0.3, size * 0.2, size * 0.3, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // String
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + size);
+                ctx.quadraticCurveTo(this.x + 10, this.y + size + 20, this.x, this.y + size + 40);
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+        }
+
+        // Theme 3: Stars and Meteors
+        class Star {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = 1 + Math.random() * 2;
+                this.brightness = Math.random();
+                this.twinkleSpeed = 0.01 + Math.random() * 0.02;
+            }
+
+            update() {
+                this.brightness += this.twinkleSpeed;
+                if (this.brightness > 1 || this.brightness < 0) {
+                    this.twinkleSpeed *= -1;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.brightness})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Meteor {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = -10;
+                this.length = 50 + Math.random() * 100;
+                this.speed = 10 + Math.random() * 10;
+                this.angle = Math.PI / 4;
+                this.opacity = 1;
+            }
+
+            update() {
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+                this.opacity -= 0.01;
+                return this.opacity > 0;
+            }
+
+            draw() {
+                const gradient = ctx.createLinearGradient(
+                    this.x, this.y,
+                    this.x - Math.cos(this.angle) * this.length,
+                    this.y - Math.sin(this.angle) * this.length
+                );
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.opacity})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(
+                    this.x - Math.cos(this.angle) * this.length,
+                    this.y - Math.sin(this.angle) * this.length
+                );
+                ctx.stroke();
+            }
+        }
+
+        // Theme 4: Gift Boxes
+        class Gift {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = -50;
+                this.size = 30 + Math.random() * 40;
+                this.speedY = 2 + Math.random() * 3;
+                this.speedX = (Math.random() - 0.5) * 2;
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = (Math.random() - 0.5) * 5;
+                this.colors = [
+                    ['#ff6b6b', '#ff5252'],
+                    ['#4ecdc4', '#3eb8b0'],
+                    ['#f9ca24', '#f0b90b'],
+                    ['#a29bfe', '#8c7ae6']
+                ][Math.floor(Math.random() * 4)];
+                this.depth = 0.5 + Math.random() * 0.5;
+            }
+
+            update() {
+                this.y += this.speedY;
+                this.x += this.speedX;
+                this.rotation += this.rotationSpeed;
+                
+                if (this.y > canvas.height) {
+                    this.y = -50;
+                    this.x = Math.random() * canvas.width;
+                }
+            }
+
+            draw() {
+                const size = this.size * this.depth;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation * Math.PI / 180);
+                ctx.globalAlpha = 0.8 + this.depth * 0.2;
+                
+                // Box
+                ctx.fillStyle = this.colors[0];
+                ctx.fillRect(-size / 2, -size / 2, size, size);
+                
+                // Ribbon vertical
+                ctx.fillStyle = this.colors[1];
+                ctx.fillRect(-size * 0.1, -size / 2, size * 0.2, size);
+                
+                // Ribbon horizontal
+                ctx.fillRect(-size / 2, -size * 0.1, size, size * 0.2);
+                
+                // Bow
+                ctx.beginPath();
+                ctx.arc(-size * 0.15, -size / 2, size * 0.15, 0, Math.PI * 2);
+                ctx.arc(size * 0.15, -size / 2, size * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        // Theme 5: Fireworks
+        class Firework {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = canvas.height;
+                this.targetY = 100 + Math.random() * 200;
+                this.speed = 5 + Math.random() * 3;
+                this.exploded = false;
+                this.particles = [];
+                this.color = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#ff9ff3', '#a29bfe'][Math.floor(Math.random() * 6)];
+            }
+
+            update() {
+                if (!this.exploded) {
+                    this.y -= this.speed;
+                    if (this.y <= this.targetY) {
+                        this.explode();
+                    }
+                } else {
+                    this.particles = this.particles.filter(p => {
+                        p.update();
+                        return p.life > 0;
+                    });
+                    return this.particles.length > 0;
+                }
+                return true;
+            }
+
+            explode() {
+                this.exploded = true;
+                const particleCount = 50 + Math.random() * 50;
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = (Math.PI * 2 * i) / particleCount;
+                    const speed = 2 + Math.random() * 4;
+                    this.particles.push({
+                        x: this.x,
+                        y: this.y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 1,
+                        decay: 0.01 + Math.random() * 0.02,
+                        update: function() {
+                            this.x += this.vx;
+                            this.y += this.vy;
+                            this.vy += 0.1; // gravity
+                            this.life -= this.decay;
+                        }
+                    });
+                }
+            }
+
+            draw() {
+                if (!this.exploded) {
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Trail
+                    ctx.fillStyle = `${this.color}88`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y + 10, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    this.particles.forEach(p => {
+                        ctx.fillStyle = `${this.color}${Math.floor(p.life * 255).toString(16).padStart(2, '0')}`;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+                }
+            }
+        }
+
+        // Theme 6: Hearts
+        class Heart {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = canvas.height + 50;
+                this.size = 20 + Math.random() * 30;
+                this.speedY = -1 - Math.random() * 2;
+                this.speedX = (Math.random() - 0.5) * 1;
+                this.swing = Math.random() * Math.PI * 2;
+                this.swingSpeed = 0.02 + Math.random() * 0.03;
+                this.opacity = 0.5 + Math.random() * 0.5;
+                this.color = ['#ff6b9d', '#ff8fab', '#ffa5ba', '#ffc2d1'][Math.floor(Math.random() * 4)];
+            }
+
+            update() {
+                this.y += this.speedY;
+                this.swing += this.swingSpeed;
+                this.x += Math.sin(this.swing) * 0.5 + this.speedX;
+                
+                if (this.y < -100) {
+                    this.y = canvas.height + 50;
+                    this.x = Math.random() * canvas.width;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.fillStyle = this.color;
+                ctx.translate(this.x, this.y);
+                
+                // Draw heart shape
+                ctx.beginPath();
+                ctx.moveTo(0, this.size * 0.3);
+                ctx.bezierCurveTo(-this.size * 0.5, -this.size * 0.3, -this.size, this.size * 0.1, 0, this.size);
+                ctx.bezierCurveTo(this.size, this.size * 0.1, this.size * 0.5, -this.size * 0.3, 0, this.size * 0.3);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        // Initialize elements based on theme
+        let elements = [];
+        let stars = [];
+        let meteors = [];
+
+        function initTheme() {
+            elements = [];
+            stars = [];
+            meteors = [];
+
+            // Get current theme index
+            const currentThemeIndex = validThemes.indexOf(theme);
+
+            switch(theme) {
+                case 'confetti':
+                    for (let i = 0; i < 100; i++) {
+                        elements.push(new Confetti());
+                    }
+                    break;
+                case 'balloons':
+                    for (let i = 0; i < 20; i++) {
+                        elements.push(new Balloon());
+                    }
+                    break;
+                case 'stars':
+                    for (let i = 0; i < 200; i++) {
+                        stars.push(new Star());
+                    }
+                    break;
+                case 'gifts':
+                    for (let i = 0; i < 15; i++) {
+                        elements.push(new Gift());
+                    }
+                    break;
+                case 'fireworks':
+                    // Fireworks spawn dynamically
+                    break;
+                case 'hearts':
+                    for (let i = 0; i < 25; i++) {
+                        elements.push(new Heart());
+                    }
+                    break;
+            }
+        }
+
+        initTheme();
+
+        // Theme auto-switching
+        if (themeTimeout > 0) {
+            let currentThemeIndex = validThemes.indexOf(theme);
+            
+            setInterval(() => {
+                currentThemeIndex = (currentThemeIndex + 1) % validThemes.length;
+                theme = validThemes[currentThemeIndex];
+                
+                // Apply new theme background
+                document.body.className = `theme-${theme}`;
+                
+                // Reinitialize theme elements
+                initTheme();
+                
+                // Reset firework and meteor timers
+                lastFireworkTime = 0;
+                lastMeteorTime = 0;
+            }, themeTimeout * 1000);
+        }
 
         // Animation loop
-        function animate() {
+        let lastFireworkTime = 0;
+        let lastMeteorTime = 0;
+
+        function animate(currentTime) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            confetti.forEach((piece, index) => {
-                piece.x += piece.vx;
-                piece.y += piece.vy;
-                piece.rotation += piece.rotationSpeed;
+            // Update and draw based on theme
+            if (theme === 'stars') {
+                stars.forEach(star => {
+                    star.update();
+                    star.draw();
+                });
 
-                // Boundary check
-                if (piece.y > canvas.height) {
-                    confetti[index] = {
-                        x: Math.random() * canvas.width,
-                        y: 0,
-                        vx: Math.random() * windSpeed * 2 - windSpeed,
-                        vy: fallSpeed + Math.random() * fallSpeed,
-                        color: colors[Math.floor(Math.random() * colors.length)],
-                        rotation: 0,
-                        rotationSpeed: Math.random() * 0.1,
-                        rotationType: Math.random() < 0.5 ? 'horizontal' : 'vertical',
-                        size: confettiSize === 0 ? Math.random() * 20 - 10 : confettiSize,
-                    };
-                }
-                if (piece.x < 0 || piece.x > canvas.width) {
-                    piece.vx *= -1;
+                // Spawn meteors occasionally
+                if (currentTime - lastMeteorTime > 2000 + Math.random() * 3000) {
+                    meteors.push(new Meteor());
+                    lastMeteorTime = currentTime;
                 }
 
-                // Draw confetti
-                ctx.fillStyle = piece.color;
-                ctx.save();
-                if (piece.rotationType === 'horizontal') {
-                    ctx.translate(piece.x + piece.size / 2, piece.y + piece.size / 2);
-                    ctx.rotate(piece.rotation);
-                    ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size);
-                } else {
-                    ctx.translate(piece.x + piece.size / 2, piece.y + piece.size / 2);
-                    ctx.rotate(Math.PI / 2 * piece.rotation);
-                    ctx.fillRect(-piece.size / 2, -piece.size / 2, piece.size, piece.size);
+                meteors = meteors.filter(meteor => {
+                    const alive = meteor.update();
+                    if (alive) meteor.draw();
+                    return alive;
+                });
+            } else if (theme === 'fireworks') {
+                // Spawn fireworks
+                if (currentTime - lastFireworkTime > 500 + Math.random() * 1000) {
+                    elements.push(new Firework());
+                    lastFireworkTime = currentTime;
                 }
-                ctx.restore();
-            });
 
-            // Move wish message
-            wishX += wishVx;
-            wishY += wishVy;
-
-            // Boundary check for wish message
-            // Boundary check for wish message
-            if (wishX - wishFontSize / 2 < 0 || wishX + wishFontSize / 2 > canvas.width) {
-                wishVx *= -1;
-            }
-            if (wishY - wishFontSize / 2 < 0 || wishY + wishFontSize / 2 > canvas.height) {
-                wishVy *= -1;
-            }
-
-            // Draw wish message
-            ctx.font = `${wishFontSize}px cursive`;
-            ctx.fillStyle = '#FFF';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(wishMsg, wishX, wishY);
-
-            // Fireworks
-            if (fireworks.length < 4 && Math.random() < 0.05) {
-                fireworks.push({
-                    x: Math.random() * canvas.width,
-                    y: canvas.height,
-                    vx: Math.random() * 5 - 2.5,
-                    vy: -Math.random() * 10 - 5,
-                    size: 5,
-                    color: colors[Math.floor(Math.random() * colors.length)],
-                    explosion: false,
-                    particles: [],
+                elements = elements.filter(firework => {
+                    const alive = firework.update();
+                    if (alive) firework.draw();
+                    return alive;
+                });
+            } else {
+                elements.forEach(element => {
+                    element.update();
+                    element.draw();
                 });
             }
 
-            fireworks.forEach((firework, index) => {
-                firework.x += firework.vx;
-                firework.y += firework.vy;
-
-                // Explode firework
-                if (!firework.explosion && firework.y < canvas.height / 2) {
-                    firework.explosion = true;
-                    for (let i = 0; i < 50; i++) {
-                        firework.particles.push({
-                            x: firework.x,
-                            y: firework.y,
-                            vx: Math.random() * 5 - 2.5,
-                            vy: Math.random() * 5 - 2.5,
-                            size: Math.random() * 5 + 2,
-                            color: firework.color,
-                        });
-                    }
-                }
-
-                // Draw firework
-                if (!firework.explosion) {
-                    ctx.fillStyle = firework.color;
-                    ctx.beginPath();
-                    ctx.arc(firework.x, firework.y, firework.size, 0, 2 * Math.PI);
-                    ctx.fill();
-                }
-
-                // Draw exploded particles
-                firework.particles.forEach((particle, particleIndex) => {
-                    particle.x += particle.vx;
-                    particle.y += particle.vy;
-                    particle.size -= 0.1;
-
-                    ctx.fillStyle = particle.color;
-                    ctx.beginPath();
-                    ctx.arc(particle.x, particle.y, particle.size, 0, 2 * Math.PI);
-                    ctx.fill();
-
-                    if (particle.size < 1) {
-                        firework.particles.splice(particleIndex, 1);
-                    }
-                });
-
-                // Remove exploded firework
-                if (firework.explosion && firework.particles.length === 0) {
-                    fireworks.splice(index, 1);
-                }
-            });
+            // Update wish text position
+            updateWishPosition();
 
             requestAnimationFrame(animate);
         }
 
-        animate();
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Start animation
+        animate(0);
     </script>
 </body>
 </html>
